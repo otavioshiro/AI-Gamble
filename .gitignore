@@ -1,0 +1,19 @@
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.idea/
+venv/
+
+# VS Code
+.vscode/
+
+# Database
+game.db
+
+# Node modules
+node_modules/

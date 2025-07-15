@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+openai
+asyncio-redis
+sqlmodel
+typer
+python-dotenv
+aiofiles
+aiosqlite
+pydantic-settings
+redis
+apscheduler

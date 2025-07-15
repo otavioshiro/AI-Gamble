@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light Theme Colors */
+    --color-background-primary: #f8f7f2; /* 柔和米白 */
+    --color-background-secondary: #ffffff; /* 卡片白色 */
+    --color-text-primary: #2d3748;       /* 深灰蓝文字 */
+    --color-text-secondary: #718096;    /* 中等灰色文字 */
+    --color-accent: #3b82f6;             /* 亮蓝色 */
+    --color-accent-hover: #2563eb;       /* 深一点的亮蓝色 */
+    --color-border: #e2e8f0;             /* 浅灰色边框 */
+  }
+
+  .dark {
+    /* Dark Theme Colors */
+    --color-background-primary: #1a202c; /* 深蓝灰背景 */
+    --color-background-secondary: #2d3748; /* 稍亮的卡片背景 */
+    --color-text-primary: #e2e8f0;       /* 灰白色文字 */
+    --color-text-secondary: #a0aec0;    /* 浅灰色文字 */
+    --color-accent: #60a5fa;             /* 柔和蓝 */
+    --color-accent-hover: #3b82f6;       /* 亮一点的柔和蓝 */
+    --color-border: #4a5568;             /* 深灰色边框 */
+  }
+}

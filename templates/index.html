@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="h-screen">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文字冒险游戏</title>
+    <link href="/static/css/output.css" rel="stylesheet">
+    <link rel="icon" href="/static/images/favicon.png">
+   <style>
+       /* 确保SVG不捕获鼠标事件，以便拖动功能正常工作 */
+       #zoom-pan-container svg {
+           pointer-events: none;
+       }
+   </style>
+</head>
+
+<body class="bg-background-primary text-text-primary font-sans h-dvh flex flex-col transition-colors duration-500">
+
+    <div class="container mx-auto p-4 md:p-4 max-w-3/5 flex flex-col flex-grow h-full">
+        <div class="flex justify-center items-center mb-6 md:mb-8 flex-shrink-0 relative">
+            <h1 class="text-3xl md:text-4xl font-bold text-center text-accent">文字冒险之旅</h1>
+            <button id="theme-toggle" class="absolute right-0 top-1/2 -translate-y-1/2 p-2 rounded-full text-text-secondary hover:bg-background-secondary focus:outline-none">
+                <svg id="theme-toggle-dark-icon" class="hidden h-6 w-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                <svg id="theme-toggle-light-icon" class="hidden h-6 w-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6m0 1a4 4 0 1 0 0-8 4 4 0 0 0 0 8M8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0m0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13m8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5M3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8m10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0m-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0m9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707M4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708"></path></svg>
+            </button>
+        </div>
+
+        <!-- 故事类型选择 -->
+        <div id="story-type-selection"
+            class="text-center p-4 bg-background-secondary rounded-lg shadow-lg max-w-4xl mx-auto w-full">
+            <h2 class="text-2xl mb-4 font-bold text-text-primary">请选择你的故事背景</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- 卡片 -->
+                <div onclick="startGame('东方玄幻')"
+                    class="group bg-background-primary rounded-lg overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-300 cursor-pointer transform hover:-translate-y-2">
+                    <img class="w-full h-48 object-cover" src="/static/images/1.png" alt="东方玄幻">
+                    <div class="p-4">
+                        <h3 class="text-xl font-bold text-accent">东方玄幻</h3>
+                        <p class="text-text-secondary mt-2 text-sm">御剑飞行，修仙问道，探索光怪陆离的仙侠世界。</p>
+                    </div>
+                </div>
+                <div onclick="startGame('西方魔幻')"
+                    class="group bg-background-primary rounded-lg overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-300 cursor-pointer transform hover:-translate-y-2">
+                    <img class="w-full h-48 object-cover" src="/static/images/2.png" alt="西方魔幻">
+                    <div class="p-4">
+                        <h3 class="text-xl font-bold text-accent">西方魔幻</h3>
+                        <p class="text-text-secondary mt-2 text-sm">巨龙、魔法、骑士与古堡，谱写你的英雄史诗。</p>
+                    </div>
+                </div>
+                <div onclick="startGame('赛博朋克')"
+                    class="group bg-background-primary rounded-lg overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-300 cursor-pointer transform hover:-translate-y-2">
+                    <img class="w-full h-48 object-cover" src="/static/images/3.png" alt="赛博朋克">
+                    <div class="p-4">
+                        <h3 class="text-xl font-bold text-accent">赛博朋克</h3>
+                        <p class="text-text-secondary mt-2 text-sm">霓虹灯下的高科技都市，探索人与机器的边界。</p>
+                    </div>
+                </div>
+                <div onclick="startGame('末日废土')"
+                    class="group bg-background-primary rounded-lg overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-300 cursor-pointer transform hover:-translate-y-2">
+                    <img class="w-full h-48 object-cover" src="/static/images/4.png" alt="末日废土">
+                    <div class="p-4">
+                        <h3 class="text-xl font-bold text-accent">末日废土</h3>
+                        <p class="text-text-secondary mt-2 text-sm">文明崩塌之后，在荒芜的世界里为生存而战。</p>
+                    </div>
+                </div>
+                <div onclick="startGame('星际科幻')"
+                    class="group bg-background-primary rounded-lg overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-300 cursor-pointer transform hover:-translate-y-2">
+                    <img class="w-full h-48 object-cover" src="/static/images/5.png" alt="星际科幻">
+                    <div class="p-4">
+                        <h3 class="text-xl font-bold text-accent">星际科幻</h3>
+                        <p class="text-text-secondary mt-2 text-sm">穿梭于无垠宇宙，探索未知的行星与文明。</p>
+                    </div>
+                </div>
+                <div onclick="startGame('都市异能')"
+                    class="group bg-background-primary rounded-lg overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-300 cursor-pointer transform hover:-translate-y-2">
+                    <img class="w-full h-48 object-cover" src="/static/images/6.jpg" alt="都市异能">
+                    <div class="p-4">
+                        <h3 class="text-xl font-bold text-accent">都市异能</h3>
+                        <p class="text-text-secondary mt-2 text-sm">现代都市的阴影之下，觉醒的超能力者们的故事。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 游戏主容器 (默认隐藏) -->
+        <div id="game-wrapper" class="hidden flex flex-col flex-grow min-h-0">
+
+            <!-- 标题和作者 -->
+            <div class="text-center my-4 flex-shrink-0">
+                <h2 id="story-title" class="text-3xl font-bold text-text-primary"></h2>
+                <p id="story-author" class="text-lg text-text-secondary"></p>
+            </div>
+
+            <!-- 故事线路图 -->
+            <div id="story-map-wrapper" class="relative my-4 bg-background-secondary rounded-lg shadow-lg flex-shrink-0" style="height: 200px;">
+                <div id="story-map-container" class="overflow-hidden w-full h-full cursor-grab">
+                    <div id="zoom-pan-container" class="w-full h-full" style="transform-origin: top left; transition: transform 0.2s ease-out;">
+                         <div class="mermaid">
+                            <!-- Mermaid graph will be injected here -->
+                        </div>
+                    </div>
+                </div>
+                <div id="zoom-controls" class="absolute top-2 right-2 flex space-x-1">
+                    <button id="zoom-in-btn" class="bg-background-primary hover:bg-border-color text-text-primary font-bold w-8 h-8 rounded-full text-lg">+</button>
+                    <button id="zoom-out-btn" class="bg-background-primary hover:bg-border-color text-text-primary font-bold w-8 h-8 rounded-full text-lg">-</button>
+                    <button id="zoom-reset-btn" class="bg-background-primary hover:bg-border-color text-text-primary font-bold w-8 h-8 rounded-full flex items-center justify-center" title="Reset View">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.899 2.186l-1.414 1.414A5.002 5.002 0 005.999 7.99l.001-.001H8a1 1 0 010 2H4a1 1 0 01-1-1V4a1 1 0 011-1zm12 14a1 1 0 01-1-1v-2.101a7.002 7.002 0 01-11.899-2.186l1.414-1.414A5.002 5.002 0 0014.001 12.01l-.001.001H12a1 1 0 010-2h4a1 1 0 011 1v4a1 1 0 01-1 1z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 游戏内容和历史记录 -->
+            <div class="flex flex-col md:flex-row gap-4 flex-grow min-h-0">
+                <!-- 主游戏区域 -->
+                <div id="main-game-content" class="md:w-6/12 flex flex-col">
+                    <!-- 故事内容显示区域 -->
+                    <div class="h-96 md:flex-1 min-h-0 overflow-y-auto mb-6
+                                scrollbar-thin scrollbar-thumb-border-color scrollbar-track-background-secondary
+                                bg-background-secondary rounded-lg shadow-inner">
+                        <div id="story-content"
+                            class="p-4 text-lg leading-relaxed">
+                            故事将在这里展开...
+                        </div>
+                    </div>
+
+                    <!-- 选项按钮区域 -->
+                    <div id="choices-container" class="grid grid-cols-1 gap-4">
+                        <!-- 选项按钮将通过JS动态生成 -->
+                    </div>
+                </div>
+
+                <!-- 故事历史区域 -->
+                <div id="history-container" class="md:w-6/12 bg-background-secondary p-4 rounded-lg shadow-lg flex flex-col">
+                    <div class="flex justify-between items-center mb-4 border-b border-border-color pb-2">
+                        <h2 class="text-xl font-bold text-accent">故事足迹</h2>
+                        <button id="new-game-btn"
+                            class="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-lg text-sm transition duration-300">新游戏</button>
+                    </div>
+                    <div id="history-log"
+                        class="h-96 overflow-y-auto space-y-4 pr-2 md:flex-1 min-h-0
+                         scrollbar-thin scrollbar-thumb-border-color scrollbar-track-background-secondary">
+                        <!-- 历史条目将通过JS动态生成 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/mermaid.min.js"></script>
+    <script src="/static/js/game.js?v=1.2"></script>
+</body>
+
+</html>
+
