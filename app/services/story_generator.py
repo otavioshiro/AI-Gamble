@@ -102,7 +102,7 @@ async def generate_story_map(client: openai.AsyncOpenAI, story_type: str, author
     你是一位顶级的游戏叙事设计师。请为一部名为《{title}》、由'{author}'创作的'{story_type}'风格的互动小说，设计一个结构丰富、引人入胜的“故事蓝图”。
 
     **核心要求:**
-    1.  **结构复杂性**: 故事蓝图必须具备非线性的特点。请设计一个包含**至少10到16个关键节点**的结构，并确保其中有**明确的分支与汇合**的路径。
+    1.  **结构复杂性**: 故事蓝图必须具备非线性的特点。请设计一个包含**至少{settings.NODE_NUM}个关键节点**的结构，并确保其中有**明确的分支与汇合**的路径。
     2.  **完整节点**: 必须包含一个开端 (id: "start") 和至少两个不同的结局 (e.g., id: "end_good", id: "end_bad")。
     3.  **清晰连接**: 必须包含 `nodes` 和 `edges` 两个部分。`edges` 用于定义节点之间的所有连接，是构成故事流向的关键。
     4.  **内容质量**:
@@ -218,20 +218,26 @@ async def generate_initial_scene(story_type: str) -> dict:
 
     theme = await _generate_theme_details(client, story_type)
     author = random.choice(theme["authors"])
-
+    system_prompt = f"""
+    请直接返回小说名称，不要带引号或其他多余内容。
+    """
     # 让AI生成小说名称，而不是随机拼接关键词
     title_prompt = f"""
     你需要为一个'{story_type}'类型的故事，生成一个富有吸引力且独特的小说名称。
-    请直接返回小说名称，不要带引号或其他多余内容。
     """
+
     response = await client.chat.completions.create(
         model=settings.OPENAI_MODEL,
-        messages=[{"role": "user", "content": title_prompt}],
+        # messages=[{"role": "user", "content": title_prompt}],
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": title_prompt}
+        ],
         temperature=0.7,
-        max_tokens=20,
     )
     title = response.choices[0].message.content.strip()
-
+    if title == '':
+        title = 'fuck gemini'
     story_map_data = await generate_story_map(client, story_type, author, title)
     writing_style = await _generate_dynamic_writing_style(client, story_type, author, title)
 

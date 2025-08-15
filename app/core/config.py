@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
     OPENAI_BASE_URL: str
     OPENAI_MODEL: str
+    NODE_NUM: int
 
     # Inactive game cleanup threshold (in hours)
     INACTIVE_GAME_CLEANUP_HOURS: int
