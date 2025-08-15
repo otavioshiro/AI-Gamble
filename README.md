@@ -130,3 +130,9 @@ sequenceDiagram
     Backend-->>Frontend: 返回 {game_id, scene, author, title, story_map}
     Frontend->>Mermaid.js: 渲染故事线路图
     Frontend->>User: 显示初始场景和线路图
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=xiamuceer-j/AI-Gamble&type=Date)](https://www.star-history.com/#xiamuceer-j/AI-Gamble&Date)
+
+![Alt](https://repobeats.axiom.co/api/embed/de78e4c6804998e61045cab53ad94f56ee6a9737.svg "Repobeats analytics image")
