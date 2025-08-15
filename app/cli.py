@@ -13,5 +13,5 @@ def init_db_command():
     asyncio.run(init_db())
     print("Database initialized.")
 
-if __name__ == "__main__":
-    cli_app()
+# if __name__ == "__main__":
+#     cli_app()
