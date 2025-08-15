@@ -1,40 +1,43 @@
-# 使用官方 Python 镜像作为基础
-FROM python:3.11-slim
-
-# 安装 Node.js 和 npm
-# 使用国内镜像源加速
-RUN sed -i 's#deb.debian.org#mirrors.aliyun.com#g' /etc/apt/sources.list.d/debian.sources && \
-    apt-get update && \
-    # 安装 Node.js
-    apt-get install -y curl xz-utils && \
-    curl -fsSL "https://npmmirror.com/mirrors/node/v18.17.1/node-v18.17.1-linux-x64.tar.xz" | tar -xJ --strip-components=1 -C /usr/local/
-
-# 设置工作目录
+# ---- Builder Stage: Build Frontend ----
+FROM node:20-slim as builder
 WORKDIR /app
 
-# 复制并安装 Python 依赖
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt --index-url https://mirrors.aliyun.com/pypi/simple/ --trusted-host mirrors.aliyun.com
-
-
-# 复制 package.json 和 package-lock.json 并安装 Node.js 依赖
+# Copy package files and install dependencies using a Chinese mirror for speed
 COPY package.json package-lock.json ./
 RUN npm install --registry=https://registry.npmmirror.com
 
-# 复制前端源文件并构建
+# Copy frontend source files and build
 COPY static ./static
 COPY tailwind.config.js .
 RUN npm run build
 
-# 复制应用代码
-COPY . .
+# ---- Final Stage: Python Application ----
+FROM python:3.11-slim
 
-# 复制并设置入口点脚本
-COPY entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/entrypoint.sh
+WORKDIR /app
 
-# 暴露端口
+# Install Python dependencies using a Chinese mirror for speed
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt --index-url https://mirrors.aliyun.com/pypi/simple/ --trusted-host mirrors.aliyun.com
+
+# Copy application code from the current directory to the container
+COPY app ./app
+COPY templates ./templates
+COPY main.py .
+
+# Copy built static assets from the builder stage
+COPY --from=builder /app/static/css/output.css ./static/css/output.css
+
+# Copy other static assets like images and JavaScript files
+COPY static/images ./static/images
+COPY static/js ./static/js
+
+# Copy and set up the entrypoint script
+COPY entrypoint.sh .
+RUN chmod +x ./entrypoint.sh
+
+# Expose the port the app runs on
 EXPOSE 8000
 
-# 运行应用
-CMD ["entrypoint.sh"]
+# Define the command to run the application
+CMD ["./entrypoint.sh"]
