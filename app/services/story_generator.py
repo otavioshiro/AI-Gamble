@@ -2,9 +2,52 @@ import openai
 import json
 import logging
 import random
+import time
 from typing import Dict, List, Optional
 
 from app.core.config import settings
+from app.services.sse_service import redis_client
+from app.crud import crud_game
+
+async def _generate_story_concept(client: openai.AsyncOpenAI, story_type: str) -> dict:
+    """
+    Generates the core concept of the story (author, title, writing style) in a single LLM call.
+    """
+    prompt = f"""
+    你需要为一个'{story_type}'类型的故事，生成一个包含作家、标题和写作风格的核心概念。
+    请严格按照以下JSON格式返回，不要有任何其他文字或markdown标记:
+    {{
+      "author": "一个有代表性的作家名字",
+      "title": "一个创意小说标题",
+      "writing_style": "一句简洁且富有想象力的写作风格描述，可以直接用在给AI的指示中"
+    }}
+    """
+    logging.info(f"Generating story concept for story type: {story_type}")
+    try:
+        response = await client.chat.completions.create(
+            model=settings.OPENAI_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.8,
+        )
+        content = response.choices[0].message.content
+        json_str = _extract_json_from_string(content)
+        if not json_str:
+            raise ValueError("LLM returned no valid JSON for story concept.")
+        
+        concept = json.loads(json_str)
+        if 'author' in concept and 'title' in concept and 'writing_style' in concept:
+            logging.info(f"Successfully generated story concept for '{story_type}'.")
+            return concept
+    except Exception as e:
+        logging.error(f"Failed to generate or parse story concept: {e}")
+
+    logging.warning(f"Using fallback story concept for '{story_type}'.")
+    return {
+        "author": "一位神秘的作家",
+        "title": "失落的传说",
+        "writing_style": "你是一位模仿大师，正在以一位神秘作家的风格，讲述一个关于失落传说的故事。"
+    }
+
 
 def _extract_json_from_string(text: str) -> Optional[str]:
     """
@@ -29,75 +72,11 @@ def _extract_json_from_string(text: str) -> Optional[str]:
     return text[first_bracket_pos:last_bracket_pos+1]
 
 
-async def _generate_theme_details(client: openai.AsyncOpenAI, story_type: str) -> dict:
+async def generate_story_map(client: openai.AsyncOpenAI, game_id: int, story_type: str, author: str, title: str) -> dict:
     """
-    Generates representative authors and title keywords for a given story type using an LLM.
+    Generates a complete story map, streaming progress updates via Redis.
     """
-    prompt = f"""
-    你需要为一个'{story_type}'类型的故事，生成一些相关的创作元素。
-    请严格按照以下JSON格式返回，不要有任何其他文字或markdown标记:
-    {{
-      "authors": ["作家A", "作家B", "作家C", "作家D", "作家E"],
-      "title_keywords": ["关键词1", "关键词2", "关键词3", "关键词4", "关键词5", "关键词6", "关键词7", "关键词8"]
-    }}
-    """
-    logging.info(f"Generating theme details for story type: {story_type}")
-    try:
-        response = await client.chat.completions.create(
-            model=settings.OPENAI_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.5,
-        )
-        content = response.choices[0].message.content
-        json_str = _extract_json_from_string(content)
-        if not json_str:
-            raise ValueError("LLM returned no valid JSON for theme details.")
-        
-        theme_details = json.loads(json_str)
-        if 'authors' in theme_details and 'title_keywords' in theme_details:
-            logging.info(f"Successfully generated theme details for '{story_type}'.")
-            return theme_details
-    except Exception as e:
-        logging.error(f"Failed to generate or parse theme details: {e}")
-
-    logging.warning(f"Using fallback theme details for '{story_type}'.")
-    return {
-        "authors": ["一位神秘的作家", "佚名说书人"],
-        "title_keywords": ["命运", "旅程", "秘密", "传说", "遗迹", "星辰"]
-    }
-
-
-async def _generate_dynamic_writing_style(client: openai.AsyncOpenAI, story_type: str, author: str, title: str) -> str:
-    """
-    Generates a dynamic and creative writing style persona using the LLM.
-    """
-    style_prompt = f"""
-    你需要为一位创作'{story_type}'类型故事的AI作家，构思一个独特且富有创意的“作家身份”或“写作风格”。
-    这个身份应该模仿著名作家'{author}'的风格，来讲述名为《{title}》的故事。
-    这个身份描述应该非常简洁（一句话），富有想象力，并能直接用在给AI的指示中。
-    请直接返回这个身份描述，不要任何多余的解释或引号。
-    """
-    try:
-        response = await client.chat.completions.create(
-            model=settings.OPENAI_MODEL,
-            messages=[{"role": "user", "content": style_prompt}],
-            temperature=1.0,
-            max_tokens=150,
-        )
-        style = response.choices[0].message.content.strip().replace('"', '')
-        if style:
-            logging.info(f"Dynamically generated writing style: {style}")
-            return style
-    except Exception as e:
-        logging.error(f"Failed to generate dynamic writing style: {e}")
-    
-    return f"你是一位模仿大师，正在以'{author}'的风格，讲述'{story_type}'故事《{title}》。"
-
-
-async def generate_story_map(client: openai.AsyncOpenAI, story_type: str, author: str, title: str) -> dict:
-    """
-    Generates a complete story map including plot, key nodes, and endings.
-    """
+    channel = f"game:{game_id}"
     prompt = f"""
     你是一位顶级的游戏叙事设计师。请为一部名为《{title}》、由'{author}'创作的'{story_type}'风格的互动小说，设计一个结构丰富、引人入胜的“故事蓝图”。
 
@@ -135,15 +114,31 @@ async def generate_story_map(client: openai.AsyncOpenAI, story_type: str, author
 
     请现在为《{title}》生成这个结构丰富的故事蓝图JSON对象。
     """
-    logging.info(f"Generating story map for '{title}'...")
+    logging.info(f"Generating story map for '{title}' (game_id: {game_id})...")
+    full_content = ""
+    last_publish_time = time.time()
+
     try:
-        response = await client.chat.completions.create(
+        stream = await client.chat.completions.create(
             model=settings.OPENAI_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
+            stream=True,
         )
-        content = response.choices[0].message.content
-        json_str = _extract_json_from_string(content)
+        async for chunk in stream:
+            if chunk.choices:
+                content = chunk.choices[0].delta.content or ""
+                full_content += content
+            
+            current_time = time.time()
+            if current_time - last_publish_time > 0.5:  # Publish every 0.5 seconds
+                await redis_client.publish(channel, {
+                    "event": "map_progress",
+                    "status": "正在构建故事脉络..."
+                })
+                last_publish_time = current_time
+
+        json_str = _extract_json_from_string(full_content)
         if not json_str:
             raise ValueError("LLM returned no valid JSON for story map.")
 
@@ -152,6 +147,10 @@ async def generate_story_map(client: openai.AsyncOpenAI, story_type: str, author
         return story_map
     except Exception as e:
         logging.error(f"Failed to generate or parse story map: {e}")
+        await redis_client.publish(channel, {
+            "event": "error",
+            "message": "故事生成失败，请稍后再试。"
+        })
         return {
           "nodes": [
             { "id": "start", "label": "故事开端", "details": "在一个遥远的世界，一个未知的故事正等待着你..." },
@@ -210,64 +209,87 @@ async def _generate_choices(client: openai.AsyncOpenAI, writing_style: str, stor
         logging.error(f"Failed to generate choices: {e}")
         return [{"id": 1, "text": "继续..."}]
 
-async def generate_initial_scene(story_type: str) -> dict:
+async def generate_initial_scene(game_id: int, story_type: str, db_session):
     """
-    Generates the author, title, story map, initial scene, and writing style.
+    Asynchronously generates the initial scene, updates the database, and publishes the result via Redis.
+    This function is designed to be run as a background task.
     """
+    channel = f"game:{game_id}"
     client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL)
 
-    theme = await _generate_theme_details(client, story_type)
-    author = random.choice(theme["authors"])
-    system_prompt = f"""
-    请直接返回小说名称，不要带引号或其他多余内容。
-    """
-    # 让AI生成小说名称，而不是随机拼接关键词
-    title_prompt = f"""
-    你需要为一个'{story_type}'类型的故事，生成一个富有吸引力且独特的小说名称。
-    """
-
-    response = await client.chat.completions.create(
-        model=settings.OPENAI_MODEL,
-        # messages=[{"role": "user", "content": title_prompt}],
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": title_prompt}
-        ],
-        temperature=0.7,
-    )
-    title = response.choices[0].message.content.strip()
-    if title == '':
-        title = 'fuck gemini'
-    story_map_data = await generate_story_map(client, story_type, author, title)
-    writing_style = await _generate_dynamic_writing_style(client, story_type, author, title)
-
     try:
+        # Step 1: Generate core concept
+        await redis_client.publish(channel, {"event": "map_progress", "status": "正在构思故事核心..."})
+        concept = await _generate_story_concept(client, story_type)
+        author = concept["author"]
+        title = concept["title"]
+        writing_style = concept["writing_style"]
+
+        # Step 2: Generate story map with progress streaming
+        await redis_client.publish(channel, {"event": "map_progress", "status": "正在构建世界地图..."})
+        story_map_data = await generate_story_map(client, game_id, story_type, author, title)
+
+        # Step 3: Generate initial scene and choices
+        await redis_client.publish(channel, {"event": "map_progress", "status": "故事即将开始...马上就好..."})
         start_node = next(node for node in story_map_data['nodes'] if node['id'] == 'start')
         initial_content = start_node['details']
-    except (StopIteration, KeyError) as e:
-        logging.error(f"Could not parse start node from story map: {e}. Using fallback.")
-        initial_content = "在一个遥远的世界，一个未知的故事正等待着你..."
+        
+        initial_choices = await _generate_choices(client, writing_style, story_map_data, initial_content)
 
-    # Generate choices for the initial scene
-    initial_choices = await _generate_choices(client, writing_style, story_map_data, initial_content)
+        scene_data = {
+            "content": initial_content,
+            "choices": initial_choices,
+            "current_node_id": "start"
+        }
+        
+        story_history = [{"role": "assistant", "content": initial_content}]
 
-    scene_data = {
-        "content": initial_content,
-        "choices": initial_choices,
-        "current_node_id": "start"
-    }
-    
-    # The initial history only contains the first scene's content
-    story_history = [{"role": "assistant", "content": initial_content}]
+        # Final payload
+        # --- Refactored Data Publishing ---
 
-    return {
-        "scene_data": scene_data,
-        "writing_style": writing_style,
-        "author": author,
-        "title": title,
-        "story_map": story_map_data,
-        "story_history": story_history
-    }
+        # First, update the database with all generated data.
+        game_update_data = crud_game.GameUpdateSchema(
+            writing_style=writing_style,
+            author=author,
+            title=title,
+            story_map=json.dumps(story_map_data, ensure_ascii=False),
+            story_history=json.dumps(story_history, ensure_ascii=False),
+            current_scene_json=json.dumps(scene_data, ensure_ascii=False)
+        )
+        await crud_game.update_game(db_session, game_id=game_id, game_in=game_update_data)
+        logging.info(f"Successfully updated game {game_id} in the database.")
+
+        # Now, publish the data in smaller, separate chunks.
+        
+        # Chunk 1: Send the story map first.
+        await redis_client.publish(channel, {
+            "event": "story_map_ready",
+            "data": {
+                "story_map": story_map_data
+            }
+        })
+        logging.info(f"Published story_map_ready for game {game_id}")
+
+        # Chunk 2: Send the initial scene and other core info.
+        initial_scene_payload = {
+            "scene_data": scene_data,
+            "author": author,
+            "title": title,
+            "story_history": story_history
+        }
+        await redis_client.publish(channel, {
+            "event": "initial_scene_ready",
+            "data": initial_scene_payload
+        })
+        logging.info(f"Published initial_scene_ready for game {game_id}")
+        logging.info(f"Successfully generated and published initial scene for game {game_id}")
+
+    except Exception as e:
+        logging.error(f"Error during initial scene generation for game {game_id}: {e}")
+        await redis_client.publish(channel, {
+            "event": "error",
+            "message": f"故事生成失败: {e}"
+        })
 
 
 async def generate_next_scene(writing_style: str, story_map: dict, story_history: List[Dict], choice_text: str) -> dict:

@@ -26,6 +26,10 @@ class Scene(BaseModel):
     choices: List[Choice]
     current_node_id: str
 
+class GameCreateResponse(BaseModel):
+    game_id: int
+    status: str
+
 class GameStateResponse(BaseModel):
     game_id: int
     scene: Scene

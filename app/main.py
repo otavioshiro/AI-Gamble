@@ -1,10 +1,10 @@
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from app.database import init_db
-from app.services.sse_service import redis_client
+from app.services.sse_service import redis_client, sse_generator
 from app.api.v1.endpoints import game
 from app.scheduler import scheduler, setup_scheduler
 
@@ -37,6 +37,13 @@ async def read_index():
     Serves the main game page.
     """
     return FileResponse('templates/index.html')
+
+@app.get("/events/{game_id}")
+async def sse_events(request: Request, game_id: int):
+    """
+    Endpoint for Server-Sent Events (SSE) to stream game updates.
+    """
+    return StreamingResponse(sse_generator(game_id), media_type="text/event-stream")
 
 # Include API routers
 app.include_router(game.router, prefix="/api/v1", tags=["game"])

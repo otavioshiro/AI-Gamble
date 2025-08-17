@@ -1,6 +1,6 @@
 import logging
 import json
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas import game as game_schema
@@ -10,37 +10,43 @@ from app.database import get_session
 
 router = APIRouter()
 
-@router.post("/game", response_model=game_schema.GameStateResponse, status_code=201)
+@router.post("/game", response_model=game_schema.GameCreateResponse, status_code=202)
 async def create_game(
     game_in: game_schema.GameCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_session),
 ):
     """
-    Starts a new game, generates the initial state, and saves it to the database.
+    Accepts a request to start a new game, creates a game record immediately,
+    and schedules the story generation as a background task.
     """
-    logging.info(f"Starting new game for story type '{game_in.story_type}'")
+    logging.info(f"Received request to start new game for story type '{game_in.story_type}'")
     
-    initial_data = await story_generator.generate_initial_scene(game_in.story_type)
-    
-    game_to_create = crud_game.GameCreateSchema(
+    # Create a placeholder game record in the database first
+    game_placeholder = crud_game.GameCreateSchema(
         story_type=game_in.story_type,
-        writing_style=initial_data["writing_style"],
-        author=initial_data["author"],
-        title=initial_data["title"],
-        story_map=json.dumps(initial_data["story_map"], ensure_ascii=False),
-        story_history=json.dumps(initial_data["story_history"], ensure_ascii=False),
-        current_scene_json=json.dumps(initial_data["scene_data"], ensure_ascii=False)
+        writing_style="generating...",
+        author="generating...",
+        title="generating...",
+        story_map="{}",
+        story_history="[]",
+        current_scene_json="{}"
+    )
+    game = await crud_game.create_game(db, game=game_placeholder)
+    
+    # Add the intensive generation task to the background
+    background_tasks.add_task(
+        story_generator.generate_initial_scene, 
+        game_id=game.id, 
+        story_type=game.story_type,
+        db_session=db
     )
     
-    game = await crud_game.create_game(db, game=game_to_create)
+    logging.info(f"Game {game.id} created. Story generation started in background.")
     
-    return game_schema.GameStateResponse(
+    return game_schema.GameCreateResponse(
         game_id=game.id,
-        scene=initial_data["scene_data"],
-        author=game.author,
-        title=game.title,
-        story_map=initial_data["story_map"],
-        story_history=initial_data["story_history"]
+        status="generating"
     )
 
 @router.post("/game/{game_id}/choice", response_model=game_schema.GameStateResponse)

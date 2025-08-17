@@ -53,7 +53,16 @@ async function resumeGame(gameId) {
 
 async function startGame(storyType) {
     const selectionDiv = document.getElementById('story-type-selection');
-    selectionDiv.innerHTML = `<div class="text-center"><p class="text-xl">正在为您生成专属故事，请稍候...</p><div class="loader mt-4"></div></div>`;
+    const statusText = document.createElement('p');
+    statusText.className = 'text-xl';
+    statusText.textContent = '正在连接服务器...';
+    const loader = document.createElement('div');
+    loader.className = 'loader mt-4';
+    selectionDiv.innerHTML = '';
+    selectionDiv.appendChild(statusText);
+    selectionDiv.appendChild(loader);
+
+    let eventSource;
 
     try {
         const response = await fetch('/api/v1/game', {
@@ -62,18 +71,62 @@ async function startGame(storyType) {
             body: JSON.stringify({ story_type: storyType }),
         });
 
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        if (response.status !== 202) {
+            throw new Error(`Server did not accept the request. Status: ${response.status}`);
+        }
 
         const data = await response.json();
         currentGameId = data.game_id;
         localStorage.setItem('activeGameId', currentGameId);
 
-        updateFullUI(data);
-        showGameWrapper();
+        statusText.textContent = '连接成功，准备开始新冒险...';
+
+        eventSource = new EventSource(`/events/${currentGameId}`);
+
+        eventSource.addEventListener('map_progress', (event) => {
+            const eventData = JSON.parse(event.data);
+            statusText.textContent = eventData.status || '正在生成...';
+        });
+
+        // New listener for the story map
+        eventSource.addEventListener('story_map_ready', (event) => {
+            const eventData = JSON.parse(event.data);
+            if (eventData.data && eventData.data.story_map) {
+                currentStoryMap = eventData.data.story_map;
+                // We can render the map early if we want, or just store it.
+                // For now, let's just store it.
+                console.log("Story map received and stored.");
+            }
+        });
+
+        eventSource.addEventListener('initial_scene_ready', (event) => {
+            const eventData = JSON.parse(event.data);
+            // The full story map is now sent separately, so we combine it here.
+            const fullUIData = {
+                ...eventData.data,
+                story_map: currentStoryMap
+            };
+            updateFullUI(fullUIData);
+            showGameWrapper();
+            eventSource.close(); // We're done, close the connection
+        });
+
+        eventSource.addEventListener('error', (event) => {
+            console.error("SSE Error:", event);
+            // The native 'error' event doesn't have a 'data' property with a JSON payload.
+            // It's a generic event indicating a connection failure.
+            statusText.textContent = '与服务器的连接中断，请刷新页面重试。';
+            loader.style.display = 'none';
+            eventSource.close();
+        });
 
     } catch (error) {
         console.error("Error starting game:", error);
-        selectionDiv.innerHTML = `<p class="text-red-500">游戏启动失败，请刷新页面重试。</p>`;
+        statusText.textContent = '游戏启动失败，请刷新页面重试。';
+        loader.style.display = 'none';
+        if (eventSource) {
+            eventSource.close();
+        }
     }
 }
 
@@ -148,15 +201,19 @@ function showGameWrapper() {
 }
 
 function updateFullUI(data) {
+    // The data from SSE event has scene data under 'scene_data'
+    // The data from other calls has it under 'scene'
+    const scene = data.scene_data || data.scene;
+
     document.getElementById('story-title').textContent = data.title;
     if(data.story_map) {
         currentStoryMap = data.story_map; // Store the map data
-        renderStoryMap(currentStoryMap, data.scene.current_node_id);
+        renderStoryMap(currentStoryMap, scene.current_node_id);
     }
     
     updateHistory(data.story_history);
     // Pass the full scene object to updateScene
-    updateScene(data.scene);
+    updateScene(scene);
 }
 
 function updateScene(scene) {

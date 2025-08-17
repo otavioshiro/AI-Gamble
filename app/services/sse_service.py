@@ -40,9 +40,20 @@ redis_client = RedisClient(settings.REDIS_URL)
 
 async def sse_generator(game_id: int):
     """
-    An async generator that yields SSE-formatted messages.
+    An async generator that listens to a Redis channel and yields SSE-formatted messages.
+    It dynamically sets the event name based on the received message.
     """
     channel = f"game:{game_id}"
     async for message in redis_client.listen(channel):
-        # SSE format: event: <event_name>\ndata: <json_string>\n\n
-        yield f"event: new_scene\ndata: {message}\n\n"
+        try:
+            data = json.loads(message)
+            event_name = data.get("event", "message")  # Default to 'message' if event key is missing
+            
+            # The data part of the SSE message should be a string.
+            # We re-serialize the whole data dict to ensure the frontend gets all info.
+            event_data = json.dumps(data, ensure_ascii=False)
+            
+            yield f"event: {event_name}\ndata: {event_data}\n\n"
+        except json.JSONDecodeError:
+            # If the message is not a valid JSON, send it as a generic message.
+            yield f"event: message\ndata: {message}\n\n"

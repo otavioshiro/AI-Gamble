@@ -1,5 +1,5 @@
 # ---- Builder Stage: Build Frontend ----
-FROM node:20-slim as builder
+FROM node:20-slim AS builder
 WORKDIR /app
 
 # Copy package files and install dependencies using a Chinese mirror for speed

@@ -17,6 +17,14 @@ class GameCreateSchema(BaseModel):
     story_history: str      # JSON string
     current_scene_json: str # JSON string
 
+class GameUpdateSchema(BaseModel):
+    writing_style: str
+    author: str
+    title: str
+    story_map: str
+    story_history: str
+    current_scene_json: str
+
 async def create_game(db: AsyncSession, game: GameCreateSchema) -> game_model.Game:
     """
     Creates a new game in the database from a schema object.
@@ -33,6 +41,20 @@ async def get_game(db: AsyncSession, game_id: int) -> Optional[game_model.Game]:
     """
     result = await db.execute(select(game_model.Game).where(game_model.Game.id == game_id))
     return result.scalars().first()
+
+async def update_game(db: AsyncSession, game_id: int, game_in: GameUpdateSchema) -> Optional[game_model.Game]:
+    """
+    Updates a game with a full set of generated data.
+    """
+    result = await db.execute(select(game_model.Game).where(game_model.Game.id == game_id))
+    game = result.scalars().first()
+    if game:
+        update_data = game_in.dict(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(game, key, value)
+        await db.commit()
+        await db.refresh(game)
+    return game
 
 async def update_game_state(db: AsyncSession, game_id: int, story_history: str, current_scene_json: str) -> Optional[game_model.Game]:
     """
