@@ -1,0 +1,131 @@
+<html>
+
+    <head>
+
+    </head>
+
+    <body>
+
+        <form action="javascript:void(0)" onsubmit="app.save()">
+
+                <input type="text" id="add-name" placeholder="New User">
+                <input type="submit" value="Save">
+                 <input type="button" value="Cancel" onclick="app.new()">
+    
+        </form> 
+
+
+        <p id="counter"></p>
+
+        <table>
+
+            <tr>
+
+            </tr>
+
+            <tbody id="users">
+
+            </tbody>
+        
+        </table>
+    </body>
+
+    <script>
+
+        //instanciar uma classe anônima
+        var app=new function(){
+            console.log("Starting app"); //impressão no console
+
+            this.elUsers=document.getElementById("users"); //instanciando el.Usuarios com seu id
+            this.users=['John', 'Carl', 'Mary']; //preenchimento do vetor de usuários
+            this.count=function(qtd){
+                var elCounter = document.getElementById("counter")
+                var name="user";
+                if (qtd){
+                    if (qtd > 1){
+                        name="users";
+                    }
+                    elCounter.innerHTML = qtd + ' ' + name;
+                }else{
+                    elCounter.innerHTML = 'No ' + name;
+                }
+            }
+        };
+
+        this.edit=function(item){
+            this.itemEdit = item;
+            //acessando nome do array
+            var name = this.users[item];
+            if(name){
+            //Acessando o elemento no DOM  
+                var elName = document.getElementById("add-name");
+            //preenchendo o form
+                elName.value=name;
+            }
+        }
+
+        this.fetchAll = function(){
+        //gera uma String em formato de tabela
+            var data = '';
+            for (i=0;i<this.users.length;i++){
+                data+='<tr>';
+                data+='<td>'+this.users[i]+'</td>';
+                data+='<td><button onclick="app.exclude('+i+')">exclude</button></td>';
+                data+='<td><button onclick="app.edit('+i+')">edit</button></td>';
+                          
+                data+="</tr>";
+            }
+
+            //atualiza o contador
+            this.count (this.users.length);
+            
+            //atualizar DOM
+            this.elUsers.innerHTML = data;
+        };
+
+        this.exclude=function(item){
+            //exclui 1 elemento
+            this.users.splice(item, 1);
+            this.fetchAll();
+        };
+
+        this.save=function(){
+            //acessando o campo com o nome do usuarios
+            var elName = document.getElementById("add-nome");
+            //pegando o texto preenchido
+            var users =  elName.value;
+                      
+            if(users){
+                if(this.itemEdit==-1){
+                //inserindo no vetor
+                    this.users.push(user);            
+                }else {
+                //Altera quando tem alguem para alterar
+                    this.users.splice(this.itemEdit, 1, user.trim());  
+                    this.itemEdit=-1;
+                }
+            //Atualizando a tela
+                this.lisNew();
+                this.new();            
+            }
+                     
+        };
+
+        this.new=function(){
+            this.itemEdit=-1;
+            var elName = document.getElementById("add-name");
+            elName.value="";
+        }
+
+        this.edit=function(){
+            var name=this.users[item];
+            var elName;
+        };
+
+        app.fetchAll();
+    
+    
+
+    </script>
+
+</html>
